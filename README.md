@@ -1,8 +1,10 @@
 # Everyday Genius Coach
 
-A reliable reasoning endpoint that coaches memory & cognition techniques from
-Nelson Dellis's *Everyday Genius*. **Week 1 base** — Week 2 extends this same
-service with RAG (`/ingest` + retrieval + citations).
+A document-grounded API that coaches memory and cognition techniques. Feed it your
+own notes with `POST /ingest`, then ask questions with `POST /ask`, and it answers
+only from what you gave it, cites the passages it used, and refuses when your notes
+do not cover the question. Built on a Week 1 reliable-reasoning base, then extended
+with retrieval (RAG) for Week 2.
 
 > Educational project for the AI Engineering Bootcamp. Not affiliated with or
 > endorsed by Nelson Dellis or the book's publisher, and no copyrighted book
@@ -13,44 +15,49 @@ service with RAG (`/ingest` + retrieval + citations).
 
 ## Endpoints
 
-- `GET /health` — liveness (also the uptime-pinger target for cold starts).
-- `POST /ask` — `{"question": "..."}` → flat JSON:
+- `GET /health`: liveness, and the uptime-pinger target for cold starts.
+- `POST /ingest`: `{"doc_id": "...", "text": "..."}`, chunks with overlap, embeds, stores.
+- `POST /ask`: `{"question": "..."}`, retrieves and grounds. Flat JSON:
 
 ```json
 {
   "answer": "...",
   "confidence": 0.9,
   "sources_needed": false,
-  "citations": [],
-  "tokens_used": 138,
-  "cost_usd": 0.000041
+  "citations": ["memory-notes#0"],
+  "tokens_used": 730,
+  "cost_usd": 0.000119
 }
 ```
 
-`citations` is empty until Week 2 wires in retrieval.
+- `POST /search`: retrieval only, for checking what `/ask` would ground on.
+
+When nothing relevant is retrieved, `/ask` refuses: `sources_needed` is true,
+`citations` is empty, and no generation call is made.
 
 ## Run locally
 
 ```bash
 pip install -r requirements.txt
-export OPENAI_API_KEY=sk-...          # Windows PowerShell: $env:OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY=sk-...          # PowerShell: $env:OPENAI_API_KEY="sk-..."
+export PINECONE_API_KEY=pcsk_...      # PowerShell: $env:PINECONE_API_KEY="pcsk_..."
 uvicorn main:app --reload             # http://localhost:8000
-streamlit run streamlit_app.py        # UI (reads API_URL, defaults to localhost)
+streamlit run streamlit_app.py        # UI with Ingest and Ask tabs
 ```
 
 ## Deploy (Render)
 
 Push to GitHub, create a Render Web Service from the repo (`render.yaml` is
-included), set `OPENAI_API_KEY`. **Cold starts:** point a free uptime monitor
-(cron-job.org / UptimeRobot) at `/health` every ~10 min so the first real
-request isn't a 10-second wake-up.
+included), and set both `OPENAI_API_KEY` and `PINECONE_API_KEY`. Cold starts:
+point a free uptime monitor (cron-job.org or UptimeRobot) at `/health` every
+~10 min so the first real request is not a slow wake-up.
 
 ## Guardrail
 
-`/ask` re-validates the model's structured output with `parse_answer`; on
+`/ask` re-validates the model's structured output with `parse_answer`. On
 malformed output it retries once, then returns a safe refusal. To show the
-guardrail catching a bad response, run the smoke test — it feeds malformed
-strings straight to the guardrail:
+guardrail catching a bad response, run the smoke test, which feeds malformed
+strings straight to it:
 
 ```bash
 python test_smoke.py
@@ -58,5 +65,5 @@ python test_smoke.py
 
 ## Cost note
 
-`PRICES` in `main.py` is USD per 1M tokens — **verify against current OpenAI
-pricing** before trusting `cost_usd`.
+`PRICES` in `main.py` is USD per 1M tokens. Verify against current OpenAI pricing
+before trusting `cost_usd`.
