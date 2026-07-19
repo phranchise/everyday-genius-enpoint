@@ -15,6 +15,7 @@ import json
 import os
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from openai import OpenAI, OpenAIError
 from pinecone import Pinecone, ServerlessSpec
 from pydantic import BaseModel, Field, ValidationError
@@ -64,7 +65,19 @@ ANSWER_SCHEMA = {
     },
 }
 
-app = FastAPI(title="Everyday Genius Coach")
+app = FastAPI(
+    title="Everyday Genius Coach",
+    version="2.0.0",
+    description=(
+        "A document-grounded memory & cognition coaching API.\n\n"
+        "**Ingest** your own notes with `POST /ingest`, then **ask** questions with "
+        "`POST /ask`. Answers come only from what you ingested, cite the passages "
+        "used, and refuse when your notes don't cover the question. `POST /search` "
+        "shows retrieval on its own.\n\n"
+        "Try any endpoint below with **Try it out**. Full guide: "
+        "[DOCS.md on GitHub](https://github.com/phranchise/everyday-genius-enpoint/blob/main/DOCS.md)."
+    ),
+)
 
 # --- lazy clients (so importing this module for tests needs no keys) ---
 _openai = None
@@ -147,6 +160,12 @@ def retrieve(question: str, top_k: int = TOP_K):
     qvec, tokens = embed([question])
     res = get_index().query(vector=qvec[0], top_k=top_k, include_metadata=True)
     return res.matches, tokens
+
+
+@app.get("/", include_in_schema=False)
+def root():
+    # Landing on the base URL drops you into the interactive docs.
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")
