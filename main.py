@@ -111,7 +111,7 @@ class Question(BaseModel):
 
 
 class IngestBody(BaseModel):
-    doc_id: str
+    document_id: str
     text: str
 
 
@@ -177,19 +177,19 @@ def health():
 def ingest(body: IngestBody):
     chunks = chunk_text(body.text)
     if not chunks:
-        return {"doc_id": body.doc_id, "chunks_ingested": 0, "tokens_used": 0, "cost_usd": 0.0}
+        return {"document_id": body.document_id, "chunks_ingested": 0, "tokens_used": 0, "cost_usd": 0.0}
     vectors, tokens = embed(chunks)
     items = [
         {
-            "id": f"{body.doc_id}#{i}",
+            "id": f"{body.document_id}#{i}",
             "values": v,
-            "metadata": {"doc_id": body.doc_id, "chunk_index": i, "text": chunks[i]},
+            "metadata": {"document_id": body.document_id, "chunk_index": i, "text": chunks[i]},
         }
         for i, v in enumerate(vectors)
     ]
     get_index().upsert(vectors=items)
     return {
-        "doc_id": body.doc_id,
+        "document_id": body.document_id,
         "chunks_ingested": len(items),
         "tokens_used": tokens,
         "cost_usd": cost_usd(EMBED_MODEL, tokens, 0),

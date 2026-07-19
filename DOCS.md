@@ -30,13 +30,13 @@ so no idea gets cut in half, embeds each chunk, and stores it.
 Request:
 
 ```json
-{ "doc_id": "memory-notes", "text": "The memory palace method works by..." }
+{ "document_id": "memory-notes", "text": "The memory palace method works by..." }
 ```
 
 Response:
 
 ```json
-{ "doc_id": "memory-notes", "chunks_ingested": 3, "tokens_used": 412, "cost_usd": 0.000008 }
+{ "document_id": "memory-notes", "chunks_ingested": 3, "tokens_used": 412, "cost_usd": 0.000008 }
 ```
 
 ### POST /ask
@@ -123,7 +123,7 @@ Replace `<your-url>` with your deployed address.
 # ingest some notes
 curl -X POST <your-url>/ingest \
   -H "Content-Type: application/json" \
-  -d '{"doc_id": "memory-notes", "text": "The memory palace method places items along a familiar route..."}'
+  -d '{"document_id": "memory-notes", "text": "The memory palace method places items along a familiar route..."}'
 
 # ask a grounded question
 curl -X POST <your-url>/ask \

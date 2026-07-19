@@ -16,7 +16,7 @@ with retrieval (RAG) for Week 2.
 ## Endpoints
 
 - `GET /health`: liveness, and the uptime-pinger target for cold starts.
-- `POST /ingest`: `{"doc_id": "...", "text": "..."}`, chunks with overlap, embeds, stores.
+- `POST /ingest`: `{"document_id": "...", "text": "..."}`, chunks with overlap, embeds, stores.
 - `POST /ask`: `{"question": "..."}`, retrieves and grounds. Flat JSON:
 
 ```json

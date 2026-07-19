@@ -11,13 +11,13 @@ st.caption("Ask memory & cognition questions grounded in your own ingested notes
 tab_ask, tab_ingest = st.tabs(["Ask", "Ingest"])
 
 with tab_ingest:
-    doc_id = st.text_input("Document ID", placeholder="memory-notes")
+    document_id = st.text_input("Document ID", placeholder="memory-notes")
     text = st.text_area("Text to ingest", height=200)
-    if st.button("Ingest") and doc_id and text:
+    if st.button("Ingest") and document_id and text:
         with st.spinner("Ingesting..."):
-            r = requests.post(f"{API_URL}/ingest", json={"doc_id": doc_id, "text": text}, timeout=120)
+            r = requests.post(f"{API_URL}/ingest", json={"document_id": document_id, "text": text}, timeout=120)
         r.raise_for_status()
-        st.success(f"Ingested {r.json()['chunks_ingested']} chunks from '{doc_id}'.")
+        st.success(f"Ingested {r.json()['chunks_ingested']} chunks from '{document_id}'.")
 
 with tab_ask:
     question = st.text_input("Ask a question", placeholder="How do I remember people's names?")
