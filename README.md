@@ -8,6 +8,9 @@ service with RAG (`/ingest` + retrieval + citations).
 > endorsed by Nelson Dellis or the book's publisher, and no copyrighted book
 > text is included in this repository.
 
+**Full guide:** see [DOCS.md](DOCS.md). Interactive API docs are served live at
+`/docs` (Swagger) and `/redoc` once the service is running.
+
 ## Endpoints
 
 - `GET /health` — liveness (also the uptime-pinger target for cold starts).
