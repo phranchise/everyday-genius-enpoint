@@ -10,9 +10,35 @@ try:
 except Exception:
     MIC = False
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+def _get_api_url() -> str:
+    # On Streamlit Cloud, set this in the app's Secrets. Locally, use an env var.
+    try:
+        if "API_URL" in st.secrets:
+            return st.secrets["API_URL"]
+    except Exception:
+        pass
+    return os.getenv("API_URL", "http://localhost:8000")
+
+
+API_URL = _get_api_url()
 
 st.set_page_config(page_title="Everyday Genius — Memory Coach", page_icon="🧠", layout="centered")
+
+
+def call_api(path: str, payload: dict, timeout: int = 60):
+    """POST to the backend, returning JSON or None with a friendly error (no traceback)."""
+    try:
+        r = requests.post(f"{API_URL}{path}", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        st.error(
+            "Couldn't reach the coach service. On Streamlit Cloud, set **API_URL** in the "
+            f"app's Secrets to your Render URL, then reboot. ({type(e).__name__})"
+        )
+        return None
+
 
 st.markdown(
     """
@@ -91,12 +117,11 @@ with tab_remember:
 
     if st.button("Get my technique ✨", type="primary", use_container_width=True) and st.session_state.get("remember_q"):
         with st.spinner("Finding your best trick..."):
-            r = requests.post(f"{API_URL}/ask", json={"question": st.session_state["remember_q"]}, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        with st.container(border=True):
-            st.markdown(data["answer"])
-        show_meta(data)
+            data = call_api("/ask", {"question": st.session_state["remember_q"]})
+        if data:
+            with st.container(border=True):
+                st.markdown(data["answer"])
+            show_meta(data)
 
 # --- Mode 2: RAG grounded in the student's own notes (/ingest + /study) ---
 with tab_study:
@@ -107,17 +132,16 @@ with tab_study:
 
     if st.button("Coach me 📚", type="primary", use_container_width=True) and st.session_state.get("study_q"):
         with st.spinner("Reading your notes..."):
-            r = requests.post(f"{API_URL}/study", json={"question": st.session_state["study_q"]}, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        if data["sources_needed"]:
-            st.warning(data["answer"] + "  \n\n_Add notes on it below, then ask again._")
-        else:
-            with st.container(border=True):
-                st.markdown(data["answer"])
-                if data["citations"]:
-                    st.caption("📌 From your notes: " + ", ".join(data["citations"]))
-        show_meta(data)
+            data = call_api("/study", {"question": st.session_state["study_q"]})
+        if data:
+            if data["sources_needed"]:
+                st.warning(data["answer"] + "  \n\n_Add notes on it below, then ask again._")
+            else:
+                with st.container(border=True):
+                    st.markdown(data["answer"])
+                    if data["citations"]:
+                        st.caption("📌 From your notes: " + ", ".join(data["citations"]))
+            show_meta(data)
 
     st.markdown("")
     with st.expander("📥 Add or update your notes", expanded=True):
@@ -125,6 +149,6 @@ with tab_study:
         notes = st.text_area("Paste your notes", height=140, placeholder="The Krebs cycle is...", key="notes_text")
         if st.button("Add to my notes 📥", use_container_width=True) and course and notes:
             with st.spinner("Filing your notes..."):
-                r = requests.post(f"{API_URL}/ingest", json={"document_id": course, "text": notes}, timeout=120)
-            r.raise_for_status()
-            st.success(f"Added {r.json()['chunks_ingested']} chunk(s) from '{course}'. Now ask about it above ⬆️")
+                data = call_api("/ingest", {"document_id": course, "text": notes}, timeout=120)
+            if data:
+                st.success(f"Added {data['chunks_ingested']} chunk(s) from '{course}'. Now ask about it above ⬆️")
