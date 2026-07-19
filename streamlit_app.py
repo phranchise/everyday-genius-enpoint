@@ -5,35 +5,76 @@ import streamlit as st
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
-st.title("Everyday Genius Coach")
-st.caption("Ask memory & cognition questions grounded in your own ingested notes.")
+st.set_page_config(page_title="Everyday Genius — Memory Coach", page_icon="🧠", layout="centered")
 
-tab_ask, tab_ingest = st.tabs(["Ask", "Ingest"])
+st.markdown(
+    """
+    <div style="text-align:center; padding: 0.5rem 0 1rem 0;">
+      <div style="font-size:2.4rem; font-weight:800;">🧠 Everyday Genius</div>
+      <div style="font-size:1.05rem; opacity:0.8;">Your memory coach for remembering anything and studying smarter.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-with tab_ingest:
-    document_id = st.text_input("Document ID", placeholder="memory-notes")
-    text = st.text_area("Text to ingest", height=200)
-    if st.button("Ingest") and document_id and text:
-        with st.spinner("Ingesting..."):
-            r = requests.post(f"{API_URL}/ingest", json={"document_id": document_id, "text": text}, timeout=120)
-        r.raise_for_status()
-        st.success(f"Ingested {r.json()['chunks_ingested']} chunks from '{document_id}'.")
 
-with tab_ask:
-    question = st.text_input("Ask a question", placeholder="How do I remember people's names?")
-    if st.button("Ask") and question:
-        with st.spinner("Thinking..."):
-            r = requests.post(f"{API_URL}/ask", json={"question": question}, timeout=60)
+def show_meta(data):
+    """Small, out-of-the-way tokens/cost line (kept for the assignment)."""
+    with st.expander("nerd stats"):
+        st.caption(
+            f"confidence {data.get('confidence', 0):.2f} · "
+            f"{data.get('tokens_used', 0)} tokens · ${data.get('cost_usd', 0):.6f}"
+        )
+
+
+tab_remember, tab_study = st.tabs(["✨ Remember anything", "📚 Study from my notes"])
+
+# --- Mode 1: general technique coach (/ask) ---
+with tab_remember:
+    st.subheader("Give me something to remember")
+    st.caption("A name, a list, a formula, a date — anything. I'll give you the best trick to lock it in.")
+    thing = st.text_input(
+        "What do you want to remember?",
+        placeholder="The first 8 elements of the periodic table",
+        label_visibility="collapsed",
+    )
+    if st.button("Get my technique ✨", type="primary") and thing:
+        with st.spinner("Finding your best trick..."):
+            r = requests.post(f"{API_URL}/ask", json={"question": thing}, timeout=60)
         r.raise_for_status()
         data = r.json()
+        st.success(data["answer"])
+        show_meta(data)
 
-        st.write(data["answer"])
-        cols = st.columns(3)
-        cols[0].metric("Confidence", f"{data['confidence']:.2f}")
-        cols[1].metric("Tokens", data["tokens_used"])
-        cols[2].metric("Cost (USD)", f"${data['cost_usd']:.6f}")
+# --- Mode 2: RAG grounded in the student's own notes (/ingest + /study) ---
+with tab_study:
+    st.subheader("1. Add your class notes")
+    st.caption("Paste notes from a lecture or reading. Give them a name so you can add more later.")
+    course = st.text_input("Notes name", placeholder="bio-chapter-3")
+    notes = st.text_area("Paste your notes", height=160, placeholder="The Krebs cycle is...")
+    if st.button("Add to my notes 📥") and course and notes:
+        with st.spinner("Filing your notes..."):
+            r = requests.post(f"{API_URL}/ingest", json={"document_id": course, "text": notes}, timeout=120)
+        r.raise_for_status()
+        st.success(f"Added {r.json()['chunks_ingested']} chunk(s) from '{course}'. Ask about it below.")
 
-        if data["citations"]:
-            st.caption("Sources: " + ", ".join(data["citations"]))
+    st.divider()
+    st.subheader("2. Ask how to remember a topic")
+    st.caption("I'll pull it from your notes and give you a technique made for that exact material.")
+    topic = st.text_input(
+        "Which topic?",
+        placeholder="How do I remember the steps of the Krebs cycle?",
+        label_visibility="collapsed",
+    )
+    if st.button("Coach me 📚", type="primary") and topic:
+        with st.spinner("Reading your notes..."):
+            r = requests.post(f"{API_URL}/study", json={"question": topic}, timeout=60)
+        r.raise_for_status()
+        data = r.json()
         if data["sources_needed"]:
-            st.warning("Not enough grounded information in the ingested documents to answer.")
+            st.warning(data["answer"])
+        else:
+            st.success(data["answer"])
+            if data["citations"]:
+                st.caption("📌 From your notes: " + ", ".join(data["citations"]))
+        show_meta(data)
